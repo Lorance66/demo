@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>恒生中国基金小工具</title>
+
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-grid.min.css">
+    <link rel="stylesheet" href="css/free.min.css">
+    <link rel="stylesheet" href="css/all.css">
+    <link rel="stylesheet" href="css/bootstrap-table.min.css">
+    <link rel="stylesheet" href="css/color.min.css">
+    <style>
+        .select,
+        #locale {
+            width: 100%;
+        }
+
+        .like {
+            margin-right: 10px;
+        }
+    </style>
+
+</head>
+<body>
+<h1>基金小工具<img src="pic/48f50bbcf663f9a8d0382fae0c086f15.gif" width="120" height="120"></h1>
+<h2>因为我没有账户类型，所以最新上架和热门基金需要根据对应基金类型和账户类型自行逻辑判断。Y有可能在不同账户下是N，N绝对是N</h2>
+
+<div id="toolbar">
+    <button id="button_all" class="btn btn-primary">全部类型</button>
+    <button id="button_a" class="btn btn-secondary">A类基金</button>
+    <button id="button_b" class="btn btn-secondary">B类基金</button>
+    <button id="button_c" class="btn btn-secondary">C类基金</button>
+    <button id="button_i" class="btn btn-success">一类可见</button>
+    <button id="button_ii" class="btn btn-danger">直销可见</button>
+    <button id="button_ii2i" class="btn btn-info">二转一可见</button>
+</div>
+<table
+        id="table"
+        data-toolbar="#toolbar"
+        data-search="true"
+        data-show-refresh="true"
+        data-show-toggle="true"
+        data-show-fullscreen="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-detail-view="true"
+        data-show-export="true"
+        data-click-to-select="true"
+        data-detail-formatter="detailFormatter"
+        data-minimum-count-columns="2"
+        data-show-pagination-switch="true"
+        data-pagination="true"
+        data-id-field="prodCode"
+        data-page-list="[10, 25, 50, 100, all]"
+        data-show-footer="true"
+        data-side-pagination="client"
+        data-url="https://rbwm-api.hsbc.com.hk/hacn-mobile-ut-public-eapi-prod-proxy/v1/funds"
+        data-response-handler="responseHandler">
+</table>
+<!--https://devcluster.api.p2g.netd2.hsbc.com.hk/hacn-mobile-ut-public-eapi-sct-proxy/v1/funds-->
+<!--data-url="https://rbwm-api.hsbc.com.hk/hacn-mobile-ut-public-eapi-prod-proxy/v1/funds"-->
+<script src="js/jquery-3.3.1.min.js"></script>
+<script src="js/popper.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/bootstrap-table.min.js"></script>
+<script src="js/tableExport.min.js"></script>
+<script src="js/bootstrap-table-locale-all.min.js"></script>
+<script>
+    var $table = $('#table')
+    var $remove = $('#remove')
+    var $btn_all = $('#button_all')
+    var $btn_a = $('#button_a')
+    var $btn_b = $('#button_b')
+    var $btn_c = $('#button_c')
+    var $btn_i = $('#button_i')
+    var $btn_ii = $('#button_ii')
+    var $btn_ii2i = $('#button_ii2i')
+    var selections = []
+
+    function getIdSelections() {
+        return $.map($table.bootstrapTable('getSelections'), function (row) {
+            debugger
+            return row.prodCode
+        })
+    }
+
+    function responseHandler(res) {
+        $.each(res.result.fundList, function (i, row) {
+            row.state = $.inArray(row.prodCode, selections) !== -1
+        })
+        return res.result.fundList;
+    }
+
+    function detailFormatter(index, row) {
+        var html = []
+        $.each(row, function (key, value) {
+            html.push('<p><b>' + key + ':</b> ' + value + '</p>')
+        })
+        return html.join('')
+    }
+
+    function operateFormatter(value, row, index) {
+        return [
+            '<a class="like" href="javascript:void(0)" title="Like">',
+            '<i class="fa fa-heart"></i>',
+            '</a>  ',
+            '<a class="remove" href="javascript:void(0)" title="Remove">',
+            '<i class="fa fa-trash"></i>',
+            '</a>'
+        ].join('')
+    }
+
+    window.operateEvents = {
+        'click .like': function (e, value, row, index) {
+            alert('You click like action, row: ' + JSON.stringify(row))
+        },
+        'click .remove': function (e, value, row, index) {
+            $table.bootstrapTable('remove', {
+                field: 'prodCode',
+                values: [row.prodCode]
+            })
+        }
+    }
+
+    function totalTextFormatter(data) {
+        return 'Total'
+    }
+
+    function totalNameFormatter(data) {
+        return 'Total:' + data.length
+    }
+
+    function fieldMappingFormatter(data) {
+        return data === '1' ? 'Y' : (data === '0' ? 'N' : 'UNKNOWN')
+    }
+
+    function totalFundTypeGroupByFormatter(data) {
+        let field = this.field;
+        let group = groupBy(data, field);
+        if (Object.entries(group).length === 0)
+            return
+        return joinRet(group, "类:", ";")
+    }
+
+    function totalYesNoGroupByFormatter(data) {
+        let field = this.field
+        let group = groupBy(data, field);
+        if (Object.entries(group).length === 0)
+            return
+        return joinRet(group, ":", ";", {"1": "是", "0": "否"});
+    }
+
+    function totalStatusGroupByFormatter(data) {
+        let group = groupBy(data, 'prodStatusName')
+        if (Object.entries(group).length === 0)
+            return
+        return joinRet(group, ":", ";")
+    }
+
+    function totalCompanyGroupByFormatter(data) {
+        let group = groupBy(data, 'fundCompany')
+        if (Object.entries(group).length === 0)
+            return
+        return joinRet(group, ":", ";")
+    }
+
+    function joinRet(groups, join, separator, keyMapping) {
+        let ret = ''
+        Object.entries(groups).forEach(entry => {
+            ret += (typeof keyMapping === "undefined" || Object.keys(keyMapping).indexOf(entry[0]) === -1 ? entry[0] : keyMapping[entry[0]]) + String(join) + entry[1].length + separator + "<br>"
+        })
+        return ret
+    }
+
+    function groupBy(array, name) {
+        const groups = {}
+        array.forEach(function (o) {
+            const key = o[name]
+            const val = groups[key] || []
+            val.push(o)
+            groups[key] = val;
+        })
+        return groups
+    }
+
+    function fundStatusMappingForMatter(data) {
+        switch (data) {
+            case '0':
+                return "开放期"
+            case '1':
+                return "募集期"
+            case '2':
+                return "发行成功"
+            case '3':
+                return "发行失败"
+            case '4':
+                return "停止交易"
+            case '5':
+                return "停止申购"
+            case '6':
+                return "停止赎回"
+            case '7':
+                return "权益登记"
+            case '9':
+                return "产品封闭期"
+            case '8':
+                return "红利发放"
+            case 'a':
+                return "产品终止"
+
+        }
+    }
+
+    function isGreenCell(data, row, index) {
+        return Number(data) === 1 ? {classes: 'bg-green'} : {}
+    }
+
+    function initTable() {
+        $table.bootstrapTable('destroy').bootstrapTable({
+            locale: 'zh-CN',
+            sortName: 'fundType',
+            theadClasses: "thead-dark",
+            sortOrder: 'asc',
+            columns: [
+                [{
+                    field: 'state',
+                    checkbox: true,
+                    rowspan: 2,
+                    align: 'center',
+                    valign: 'middle'
+                }, {
+                    title: '基金编号',
+                    field: 'prodCode',
+                    rowspan: 2,
+                    align: 'center',
+                    valign: 'middle',
+                    searchFormatter: true,
+                    sortable: true,
+                    footerFormatter: totalTextFormatter
+                }, {
+                    title: '基金详情',
+                    colspan: 9,
+                    align: 'center'
+                }],
+                [{
+                    field: 'prodName',
+                    title: '基金名称',
+                    sortable: true,
+                    footerFormatter: totalNameFormatter,
+                    align: 'center',
+                    footerFormatter: totalCompanyGroupByFormatter
+                }, {
+                    field: "iVisible",
+                    title: "一类可见?",
+                    cellStyle: isGreenCell,
+                    sortable: true,
+                    formatter: fieldMappingFormatter,
+                    align: 'center',
+                    footerFormatter: totalYesNoGroupByFormatter
+                }, {
+                    field: "iiVisible",
+                    title: "直销可见?",
+                    cellStyle: isGreenCell,
+                    sortable: true,
+                    formatter: fieldMappingFormatter,
+                    align: 'center',
+                    footerFormatter: totalYesNoGroupByFormatter
+                }, {
+                    field: "iitoiVisible",
+                    title: "二转一可见?",
+                    cellStyle: isGreenCell,
+                    sortable: true,
+                    formatter: fieldMappingFormatter,
+                    align: 'center',
+                    footerFormatter: totalYesNoGroupByFormatter
+                }, {
+                    field: 'fundType',
+                    title: '基金类型',
+                    sortable: true,
+                    align: 'center',
+                    footerFormatter: totalFundTypeGroupByFormatter
+                }, {
+                    field: 'isNew',
+                    title: '最新上架？',
+                    cellStyle: isGreenCell,
+                    sortable: true,
+                    align: 'center',
+                    formatter: fieldMappingFormatter,
+                    footerFormatter: totalYesNoGroupByFormatter
+                }, {
+                    field: 'isHot',
+                    title: '热门基金？',
+                    sortable: true,
+                    cellStyle: isGreenCell,
+                    align: 'center',
+                    formatter: fieldMappingFormatter,
+                    footerFormatter: totalYesNoGroupByFormatter
+                }, {
+                    field: 'prodStatus',
+                    title: '产品状态',
+                    sortable: true,
+                    align: 'center',
+                    formatter: fundStatusMappingForMatter,
+                    footerFormatter: totalStatusGroupByFormatter
+                }, {
+                    field: 'operate',
+                    title: 'Item Operate',
+                    align: 'center',
+                    clickToSelect: false,
+                    events: window.operateEvents,
+                    formatter: operateFormatter
+                }]
+            ]
+        })
+        $table.on('check.bs.table uncheck.bs.table ' +
+            'check-all.bs.table uncheck-all.bs.table',
+            function () {
+                $remove.prop('disabled', !$table.bootstrapTable('getSelections').length)
+
+                // save your data, here just save the current page
+                selections = getIdSelections()
+                // push or splice the selections if you want to save all data selections
+            })
+        $table.on('all.bs.table', function (e, name, args) {
+            console.log(name, args)
+        })
+        $remove.click(function () {
+            var ids = getIdSelections()
+            $table.bootstrapTable('remove', {
+                field: 'prodCode',
+                values: ids
+            })
+            $remove.prop('disabled', true)
+        })
+    }
+
+    $(function () {
+        initTable()
+
+        $('#locale').change(initTable)
+        $btn_all.click(function () {
+            $table.bootstrapTable('filterBy', {})
+        })
+        $btn_a.click(function () {
+            $table.bootstrapTable('filterBy', {
+                fundType: ['A']
+            })
+        })
+        $btn_b.click(function () {
+            $table.bootstrapTable('filterBy', {
+                fundType: ['B']
+            })
+        })
+        $btn_c.click(function () {
+            $table.bootstrapTable('filterBy', {
+                fundType: ['C']
+            })
+        })
+        $btn_i.click(function () {
+            $table.bootstrapTable('filterBy', {
+                iVisible: ["1"]
+            })
+        })
+        $btn_ii.click(function () {
+            $table.bootstrapTable('filterBy', {
+                iiVisible: ["1"]
+            })
+        })
+        $btn_ii2i.click(function () {
+            $table.bootstrapTable('filterBy', {
+                iitoiVisible: ['1']
+            })
+        })
+    })
+</script>
+</body>
+</html>
